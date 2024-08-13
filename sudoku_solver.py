@@ -56,11 +56,11 @@ class Puzzle:
             # Check if any cells have been solved
             self.check_solved()
             # Check for naked and hidden singles
-            self.sort_singles()
+            self.check_singles()
             # If no progress has been made, go up in order complexity
             if str(self.matrix) == old_matrix:
                 # Check for naked and hidden pairs
-                self.sort_pairs()
+                self.check_pairs()
                 if str(self.matrix) == old_matrix:
                     print("No further progress can be made with current techniques.")
                     progress_made = False
@@ -89,154 +89,49 @@ class Puzzle:
                     self.matrix[row_pos][col_pos] = cell[0]
 
 
-    def sort_singles(self):
-        # Below check for naked singles:
-        # Remove solved values from cell candidates across container
-        self.check_nr_singles()
-        self.check_nc_singles()
-        self.check_nb_singles()
-        # Below check for hidden singles:
-        # Identify candidates present in only one cell in container
-        self.check_hr_singles()
-        self.check_hc_singles()
-        self.check_hb_singles()
-
-
-    def sort_pairs(self):
-        # Below check for naked pairs:
-        # Identify 2x candidate numbers in same container, and remove from other cells
-        self.check_nr_pairs()
-        self.check_nc_pairs()
-        self.check_nb_pairs()
-        # Below check for hidden pairs:
-        # Identify 2x candidate numbers only present in two cells of same container
-        # Functions to come...
-
-
-    # A program that checks for known values in rows, and removes them from other cells in the same row
-    def check_nr_singles(self):
-        # For each row
-        for y in range(9):
-            # Create an empty cell list
-            cells = []
-            # For each cell in the row
-            for x in range(9):
-                # Append it to the list
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.get_singles(cells)
-            # For each cell in the row
-            for x in range(9):
-                # If the cell is a list
-                if isinstance(self.matrix[y][x], list):
-                    # Remove any impossibilities (based on singles) from the list
-                    self.matrix[y][x] = [item for item in self.matrix[y][x] if item not in singles]
-
-
-    # A function that checks for known values in columns, and removes them from other cells in the same column
-    def check_nc_singles(self):
-        # For each column
-        for x in range(9):
-            # Create an empty cell list
-            cells = []
-            # For each cell in the column
-            for y in range(9):
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.get_singles(cells)
-            # For each cell in the column
-            for y in range(9):
-                if isinstance(self.matrix[y][x], list):
-                    self.matrix[y][x] = [item for item in self.matrix[y][x] if item not in singles]
-
-
-    # A function that checks single values in boxes, and removes them from other cells in the same row
-    def check_nb_singles(self):
-        # For each of the boxes, extract the relevant cells
+    def check_singles(self):
+        for i in range(9):
+            self.eliminate_knowns(self.matrix[i], 'row', i)
+            self.hidden_singles(self.matrix[i], 'row', i)
+            self.eliminate_knowns([self.matrix[x][i] for x in range(9)], 'col', i)
+            self.hidden_singles([self.matrix[x][i] for x in range(9)], 'col', i) 
+        # Need to write box logic, feel that there is a way to incorporate this with a bit of thinking
         for box in self.boxes.values():
-            # Create an empty cell list
-            cells = []
-            # Extract position of each relevant cell
-            for y, x in box:
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.get_singles(cells)
-            # For each cell in box
-            for y, x in box:
-                if isinstance(self.matrix[y][x], list):
-                    self.matrix[y][x] = [item for item in self.matrix[y][x] if item not in singles]
+            self.eliminate_knowns([self.matrix[y][x] for y,x in box], "box", box)
+            self.hidden_singles([self.matrix[y][x] for y,x in box], "box", box)
 
 
-    def check_hr_singles(self):
-        # For each row
-        for y in range(9):
-            # Create an empty cell list
-            cells = []
-            # For each cell in the row
-            for x in range(9):
-                # Append it to the list
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.get_singles(cells)
-            counts = count_elements_lists(flatten_list(cells))
-            unique_values = []
-            for value in counts.keys():
-                if counts[value] == 1 and value not in singles:
-                    # find occurrence of value in the row, and replace the cell value
-                    unique_values.append(value)
-
-            for x, sublist in enumerate(cells):
-                if isinstance(sublist, list):
-                    for unique_value in unique_values:
-                        if unique_value in sublist:
-                            self.matrix[y][x] = unique_value
-
-
-
-    def check_hc_singles(self):
-        for x in range(9):
-            # Create an empty cell list
-            cells = []
-            # For each cell in the column
-            for y in range(9):
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.get_singles(cells)
-            counts = count_elements_lists(flatten_list(cells))
-            unique_values = []
-            for value in counts.keys():
-                if counts[value] == 1 and value not in singles:
-                    # find occurrence of value in the row, and replace the cell value
-                    unique_values.append(value)
-            for y, sublist in enumerate(cells):
-                if isinstance(sublist, list):
-                    for unique_value in unique_values:
-                        if unique_value in sublist:
-                            self.matrix[y][x] = unique_value
-
-
-    def check_hb_singles(self):
-        # For each of the boxes, extract the relevant cells
+    def check_pairs(self):
+        for i in range(9):
+            self.naked_pairs(self.matrix[i], 'row', i)
+            self.naked_pairs([self.matrix[x][i] for x in range(9)], 'col', i)
+        # Need to write box logic, feel that there is a way to incorporate this with a bit of thinking
         for box in self.boxes.values():
-            # Create an empty cell list
-            cells = []
-            # Extract position of each relevant cell
-            for y, x in box:
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.get_singles(cells)
-            counts = count_elements_lists(flatten_list(cells))
-            unique_values = []
-            for value in counts.keys():
-                if counts[value] == 1 and value not in singles:
-                    # find occurrence of value in the row, and replace the cell value
-                    unique_values.append(value)
-            for i, sublist in enumerate(cells):
-                if isinstance(sublist, list):
-                    for unique_value in unique_values:
-                        if unique_value in sublist:
-                            y,x = box[i]
-                            self.matrix[y][x] = unique_value
+            self.naked_pairs([self.matrix[y][x] for y,x in box], "box", box)
+
+
+    def eliminate_knowns(self, cells, container_type, container_num):
+        singles = self.get_singles(cells)
+        for index, cell in enumerate(cells):
+            if isinstance(cell, list):
+                new_candidates = [item for item in cell if item not in singles]
+                self.update_matrix(new_candidates, container_type, container_num, index)
+
+
+    def hidden_singles(self, cells, container_type, container_num):
+        singles = self.get_singles(cells)
+        counts = count_elements_lists(flatten_list(cells))
+        unique_values = []
+        for value in counts.keys():
+            if counts[value] == 1 and value not in singles:
+                # find occurrence of value in the row, and replace the cell value
+                unique_values.append(value)
+
+        for index, cell in enumerate(cells):
+            if isinstance(cell, list):
+                for unique_value in unique_values:
+                    if unique_value in cell:
+                        self.update_matrix(unique_value, container_type, container_num, index)
 
 
     # A function taking the list of cells as an input, and returning a list of single numbers
@@ -253,61 +148,17 @@ class Puzzle:
         return singles
 
 
-    def check_nr_pairs(self):
-        # For each row
-        for y in range(9):
-            # Create an empty cell list
-            cells = []
-            # For each cell in the row
-            for x in range(9):
-                # Append it to the list
-                cells.append(self.matrix[y][x])
-            # Isolate any pair values
-            pairs = self.check_pairs(cells)
-            # For each cell in the row
-            for x in range(9):
-                # If the cell is a list
-                if isinstance(self.matrix[y][x], list):
-                    if not set(self.matrix[y][x]).issubset(pairs):
-                        # Remove any impossibilities (based on singles) from the list
-                        self.matrix[y][x] = [item for item in self.matrix[y][x] if item not in pairs]
+    def naked_pairs(self, cells, container_type, container_num):
+        pairs = self.get_pairs(cells)
+        for index, cell in enumerate(cells):
+            # If the cell is a list
+            if isinstance(cell, list):
+                if not set(cell).issubset(pairs):
+                    new_candidates = [item for item in cell if item not in pairs]
+                    self.update_matrix(new_candidates, container_type, container_num, index)
 
 
-    def check_nc_pairs(self):
-        # For each column
-        for x in range(9):
-            # Create an empty cell list
-            cells = []
-            # For each cell in the column
-            for y in range(9):
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            pairs = self.check_pairs(cells)
-            # For each cell in the column
-            for y in range(9):
-                if isinstance(self.matrix[y][x], list):
-                    if not set(self.matrix[y][x]).issubset(pairs):
-                         self.matrix[y][x] = [item for item in self.matrix[y][x] if item not in pairs]
-
-
-    def check_nb_pairs(self):
-        # For each of the boxes, extract the relevant cells
-        for box in self.boxes.values():
-            # Create an empty cell list
-            cells = []
-            # Extract position of each relevant cell
-            for y, x in box:
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            pairs = self.check_pairs(cells)
-            # For each cell in box
-            for y,x in box:
-                if isinstance(self.matrix[y][x], list):
-                    if not set(self.matrix[y][x]).issubset(pairs):
-                         self.matrix[y][x] = [item for item in self.matrix[y][x] if item not in pairs]
-
-
-    def check_pairs(self, cells):
+    def get_pairs(self, cells):
         naked_pairs = []
         pairs = [cell for cell in cells if isinstance(cell, list) and len(cell) == 2]
         pairs_count = {tuple(pair): pairs.count(pair) for pair in pairs}
@@ -315,6 +166,17 @@ class Puzzle:
             if pairs_count[(num1,num2)] == 2:
                 naked_pairs += [num1, num2]
         return naked_pairs
+
+
+    def update_matrix(self, new_candidates, container_type, container_num, index):
+        if container_type == "row":
+            self.matrix[container_num][index] = new_candidates
+        if container_type == "col":
+            self.matrix[index][container_num] = new_candidates
+        if container_type == "box":
+            y,x = container_num[index]
+            self.matrix[y][x] = new_candidates
+            # Need to write box logic
 
 
     # Generates a dictionary of the 9 3x3 boxes that make a sudoku grid
@@ -364,7 +226,7 @@ def count_elements_lists(nums):
 def main():
     puzzle = Puzzle()
     # Transferring over puzzle contents
-    numbers = "003020600900305001001806400008102900700000008006708200002609500800203009005010300"
+    numbers = "300200000000107000706030500070009080900020004010800050009040301000702000000008006"
 
     # replace known values in the sudoku
     for index, cell in enumerate(numbers):
