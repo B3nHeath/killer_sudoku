@@ -38,7 +38,7 @@ class Puzzle:
                         template[position] = str(num)
             # return template to string format
             template = "".join(template)
-            # Append it to our full template
+            # Append it to our full sudoku
             full_matrix += template
         # Once all rows are added, add a final horizontal seperator
         full_matrix += "-"*73 + "\n"
@@ -47,28 +47,20 @@ class Puzzle:
 
     # A function to solve the sudoku
     def solve(self):
+        # Initialise variable telling us whether programme is able to make progress
         progress_made = True
-        # If the puzzle is not solved
+        # If the puzzle is not solved and we are making progress
         while not self.is_solved() and progress_made:
             # Store the original
             old_matrix = str(self.matrix)
             # Check if any cells have been solved
             self.check_solved()
-            # Remove possibilities based on known values in...
-            # Rows
-            self.check_nr_singles()
-            # Columns
-            self.check_nc_singles()
-            # Boxes
-            self.check_nb_singles()
-            self.check_hr_singles()
-            self.check_hc_singles()
-            self.check_hb_singles()
-            # If no progress has been made
+            # Check for naked and hidden singles
+            self.sort_singles()
+            # If no progress has been made, go up in order complexity
             if str(self.matrix) == old_matrix:
-                self.check_nr_pairs()
-                self.check_nc_pairs()
-                self.check_nb_pairs()
+                # Check for naked and hidden pairs
+                self.sort_pairs()
                 if str(self.matrix) == old_matrix:
                     print("No further progress can be made with current techniques.")
                     progress_made = False
@@ -95,7 +87,31 @@ class Puzzle:
                 if isinstance(cell, list) and len(cell) == 1:
                     # Replace the cell with an int of the number
                     self.matrix[row_pos][col_pos] = cell[0]
-                        
+
+
+    def sort_singles(self):
+        # Below check for naked singles:
+        # Remove solved values from cell candidates across container
+        self.check_nr_singles()
+        self.check_nc_singles()
+        self.check_nb_singles()
+        # Below check for hidden singles:
+        # Identify candidates present in only one cell in container
+        self.check_hr_singles()
+        self.check_hc_singles()
+        self.check_hb_singles()
+
+
+    def sort_pairs(self):
+        # Below check for naked pairs:
+        # Identify 2x candidate numbers in same container, and remove from other cells
+        self.check_nr_pairs()
+        self.check_nc_pairs()
+        self.check_nb_pairs()
+        # Below check for hidden pairs:
+        # Identify 2x candidate numbers only present in two cells of same container
+        # Functions to come...
+
 
     # A program that checks for known values in rows, and removes them from other cells in the same row
     def check_nr_singles(self):
@@ -108,7 +124,7 @@ class Puzzle:
                 # Append it to the list
                 cells.append(self.matrix[y][x])
             # Isolate any single values
-            singles = self.check_singles(cells)
+            singles = self.get_singles(cells)
             # For each cell in the row
             for x in range(9):
                 # If the cell is a list
@@ -127,7 +143,7 @@ class Puzzle:
             for y in range(9):
                 cells.append(self.matrix[y][x])
             # Isolate any single values
-            singles = self.check_singles(cells)
+            singles = self.get_singles(cells)
             # For each cell in the column
             for y in range(9):
                 if isinstance(self.matrix[y][x], list):
@@ -144,15 +160,87 @@ class Puzzle:
             for y, x in box:
                 cells.append(self.matrix[y][x])
             # Isolate any single values
-            singles = self.check_singles(cells)
+            singles = self.get_singles(cells)
             # For each cell in box
-            for y,x in box:
+            for y, x in box:
                 if isinstance(self.matrix[y][x], list):
                     self.matrix[y][x] = [item for item in self.matrix[y][x] if item not in singles]
 
 
+    def check_hr_singles(self):
+        # For each row
+        for y in range(9):
+            # Create an empty cell list
+            cells = []
+            # For each cell in the row
+            for x in range(9):
+                # Append it to the list
+                cells.append(self.matrix[y][x])
+            # Isolate any single values
+            singles = self.get_singles(cells)
+            counts = count_elements_lists(flatten_list(cells))
+            unique_values = []
+            for value in counts.keys():
+                if counts[value] == 1 and value not in singles:
+                    # find occurrence of value in the row, and replace the cell value
+                    unique_values.append(value)
+
+            for x, sublist in enumerate(cells):
+                if isinstance(sublist, list):
+                    for unique_value in unique_values:
+                        if unique_value in sublist:
+                            self.matrix[y][x] = unique_value
+
+
+
+    def check_hc_singles(self):
+        for x in range(9):
+            # Create an empty cell list
+            cells = []
+            # For each cell in the column
+            for y in range(9):
+                cells.append(self.matrix[y][x])
+            # Isolate any single values
+            singles = self.get_singles(cells)
+            counts = count_elements_lists(flatten_list(cells))
+            unique_values = []
+            for value in counts.keys():
+                if counts[value] == 1 and value not in singles:
+                    # find occurrence of value in the row, and replace the cell value
+                    unique_values.append(value)
+            for y, sublist in enumerate(cells):
+                if isinstance(sublist, list):
+                    for unique_value in unique_values:
+                        if unique_value in sublist:
+                            self.matrix[y][x] = unique_value
+
+
+    def check_hb_singles(self):
+        # For each of the boxes, extract the relevant cells
+        for box in self.boxes.values():
+            # Create an empty cell list
+            cells = []
+            # Extract position of each relevant cell
+            for y, x in box:
+                cells.append(self.matrix[y][x])
+            # Isolate any single values
+            singles = self.get_singles(cells)
+            counts = count_elements_lists(flatten_list(cells))
+            unique_values = []
+            for value in counts.keys():
+                if counts[value] == 1 and value not in singles:
+                    # find occurrence of value in the row, and replace the cell value
+                    unique_values.append(value)
+            for i, sublist in enumerate(cells):
+                if isinstance(sublist, list):
+                    for unique_value in unique_values:
+                        if unique_value in sublist:
+                            y,x = box[i]
+                            self.matrix[y][x] = unique_value
+
+
     # A function taking the list of cells as an input, and returning a list of single numbers
-    def check_singles(self, cells):
+    def get_singles(self, cells):
         # Create an empty list to store known values
         singles = []
         # For each cell in the passed cells list
@@ -164,16 +252,6 @@ class Puzzle:
         # Return known values
         return singles
 
-
-    def check_pairs(self, cells):
-        naked_pairs = []
-        pairs = [cell for cell in cells if isinstance(cell, list) and len(cell) == 2]
-        pairs_count = {tuple(pair): pairs.count(pair) for pair in pairs}
-        for num1,num2 in pairs_count:
-            if pairs_count[(num1,num2)] == 2:
-                naked_pairs += [num1, num2]
-        return naked_pairs
-    
 
     def check_nr_pairs(self):
         # For each row
@@ -229,76 +307,14 @@ class Puzzle:
                          self.matrix[y][x] = [item for item in self.matrix[y][x] if item not in pairs]
 
 
-    def check_hr_singles(self):
-        # For each row
-        for y in range(9):
-            # Create an empty cell list
-            cells = []
-            # For each cell in the row
-            for x in range(9):
-                # Append it to the list
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.check_singles(cells)
-            counts = count_elements_lists(flatten_list(cells))
-            unique_values = []
-            for value in counts.keys():
-                if counts[value] == 1 and value not in singles:
-                    # find occurrence of value in the row, and replace the cell value
-                    unique_values.append(value)
-
-            for x, sublist in enumerate(cells):
-                if isinstance(sublist, list):
-                    for unique_value in unique_values:
-                        if unique_value in sublist:
-                            self.matrix[y][x] = unique_value
-
-
-
-    def check_hc_singles(self):
-        for x in range(9):
-            # Create an empty cell list
-            cells = []
-            # For each cell in the column
-            for y in range(9):
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.check_singles(cells)
-            counts = count_elements_lists(flatten_list(cells))
-            unique_values = []
-            for value in counts.keys():
-                if counts[value] == 1 and value not in singles:
-                    # find occurrence of value in the row, and replace the cell value
-                    unique_values.append(value)
-            for y, sublist in enumerate(cells):
-                if isinstance(sublist, list):
-                    for unique_value in unique_values:
-                        if unique_value in sublist:
-                            self.matrix[y][x] = unique_value
-
-
-    def check_hb_singles(self):
-        # For each of the boxes, extract the relevant cells
-        for box in self.boxes.values():
-            # Create an empty cell list
-            cells = []
-            # Extract position of each relevant cell
-            for y, x in box:
-                cells.append(self.matrix[y][x])
-            # Isolate any single values
-            singles = self.check_singles(cells)
-            counts = count_elements_lists(flatten_list(cells))
-            unique_values = []
-            for value in counts.keys():
-                if counts[value] == 1 and value not in singles:
-                    # find occurrence of value in the row, and replace the cell value
-                    unique_values.append(value)
-            for i, sublist in enumerate(cells):
-                if isinstance(sublist, list):
-                    for unique_value in unique_values:
-                        if unique_value in sublist:
-                            y,x = box[i]
-                            self.matrix[y][x] = unique_value
+    def check_pairs(self, cells):
+        naked_pairs = []
+        pairs = [cell for cell in cells if isinstance(cell, list) and len(cell) == 2]
+        pairs_count = {tuple(pair): pairs.count(pair) for pair in pairs}
+        for num1,num2 in pairs_count:
+            if pairs_count[(num1,num2)] == 2:
+                naked_pairs += [num1, num2]
+        return naked_pairs
 
 
     # Generates a dictionary of the 9 3x3 boxes that make a sudoku grid
@@ -348,7 +364,7 @@ def count_elements_lists(nums):
 def main():
     puzzle = Puzzle()
     # Transferring over puzzle contents
-    numbers = "200080300060070084030500209000105408000000000402706000301007040720040060004010003"
+    numbers = "003020600900305001001806400008102900700000008006708200002609500800203009005010300"
 
     # replace known values in the sudoku
     for index, cell in enumerate(numbers):
